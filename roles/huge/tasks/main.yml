@@ -1,0 +1,61 @@
+---
+- name: Creates directory
+  ansible.builtin.file:
+    path: /dev/hugepages1G
+    state: directory
+
+- name: Add Line Fstab
+  lineinfile:
+    path: "/etc/fstab"
+    line: nodev /dev/hugepages1G hugetlbfs pagesize=2M 0 0
+    insertbefore: BOF
+
+- name: Mount
+  command: mount -a
+
+- name: Copy Hugetlb Script
+  ansible.builtin.copy:
+    src: ./hugetlb-reserve-pages.sh
+    dest: /usr/lib/systemd/hugetlb-reserve-pages.sh
+    owner: root
+    group: root
+    mode: u=rwx,g=rx,o=rx
+
+- name: Copy Hugetlb Service File
+  ansible.builtin.copy:
+    src: ./hugetlb-gigantic-pages.service
+    dest: /usr/lib/systemd/system/hugetlb-gigantic-pages.service
+    owner: root
+    group: root
+    mode: u=rw,g=r,o=r
+
+- name: Disable SELINUX
+  ansible.builtin.lineinfile:
+    path: /etc/libvirt/qemu.conf
+    regexp: 'hugetlbfs_mount= "/dev/hugepages'
+    line: '#hugetlbfs_mount= "/dev/hugepages'
+
+- name: Disable SELINUX
+  ansible.builtin.lineinfile:
+    path: /etc/libvirt/qemu.conf
+    line: hugetlbfs_mount = ["/dev/hugepages", "/dev/hugepages1G"]
+    insertbefore: BOF
+
+- name: Disable SELINUX
+  ansible.builtin.lineinfile:
+    path: /etc/libvirt/qemu.conf
+    line: security_driver = "none"
+    insertbefore: BOF
+
+- name: Stop & Disable ksmtuned
+  systemd:
+    name: libvirtd
+    state: restarted
+    enabled: yes
+
+- name: Stop & Disable ksmtuned
+  systemd:
+    name: hugetlb-gigantic-pages
+    state: restarted
+    enabled: yes
+

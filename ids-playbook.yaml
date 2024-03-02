@@ -1,0 +1,294 @@
+---
+- name: IDS Kurulum
+  hosts: host
+  become: yes
+  tasks:
+    - name: Copy ISO File
+      ansible.builtin.copy:
+        src: ./rhel-8.8-x86_64-dvd.iso
+        dest: /rhel-8.8-x86_64-dvd.iso
+        owner: root
+        group: root
+        mode: '0777'
+
+    - name: Dizin Oluştur
+      ansible.builtin.file:
+        path: /mnt/rhel
+        state: directory
+
+    - name: Mount RHEL ISO
+      mount:
+        path: /mnt/rhel
+        src: /rhel-8.8-x86_64-dvd.iso
+        fstype: iso9660
+        opts: loop
+        state: mounted
+
+    - name: Create dirctory
+      ansible.builtin.file:
+        path: /local-repo
+        state: directory
+        mode: '644'
+
+    - name: Dosyaları Sıkıştır
+      ansible.builtin.archive:
+        path: /mnt/rhel
+        dest: /tmp/mnt.tar.gz
+        format: gz
+
+    - name: Hedef Sunucuda Arşivi Çıkart
+      command: "tar -xzvf /tmp/mnt.tar.gz -C /local-repo/"
+
+    - name: Copy Yum Repo's File
+      ansible.builtin.copy:
+        src: ./local-dvdrom.repo
+        dest: /etc/yum.repos.d/local-dvdrom.repo
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install Packages
+      yum:
+        name: 
+          - createrepo
+          - yum-utils
+        state: present
+
+    - name: Clean All
+      command: "yum clean all"
+      args:
+        executable: /bin/bash
+
+    - name: subscription-manager.conf Dosyasını Düzenle
+      ansible.builtin.lineinfile:
+        path: /etc/yum/pluginconf.d/subscription-manager.conf
+        regexp: 'enabled=1'
+        line: 'enabled=0' 
+
+    - name: Install Packages
+      yum:
+        name:
+          - "@Development tools"
+          - qemu-kvm 
+          - qemu-img
+          - libvirt
+          - virt-install
+          - virt-manager
+          - libvirt-client
+          - virt-viewer
+          - hwloc
+          - xorg-x11-xauth
+          - xorg-x11-fonts-*
+          - xorg-x11-utils
+          - net-tools
+          - network-scripts
+          - "@Virtualization Tools"
+          - libibumad
+          - tcpdump
+          - traceroute
+        state: present
+
+    - name: lstopo Command
+      command: "lstopo-no-graphics"
+      args:
+        executable: /bin/bash
+
+    - name: Tuned Command-1
+      command: "tuned-adm profile virtual-host"
+      args:
+        executable: /bin/bash
+
+    - name: Tuned Command-2
+      command: "tuned-adm profile_info"
+      args:
+        executable: /bin/bash
+
+    - name: Copy Default Network-Script
+      command: "cp -r /etc/sysconfig/network-scripts/ /root/network-scripts-backup"
+      args:
+        executable: /bin/bash
+
+- hosts: host
+  become: yes
+  tasks:
+    - name: Envanter dosyasından hostname'leri al
+      set_fact:
+        new_hostnames: "{{ ansible_play_hosts_all }}"
+
+    - name: Yeni hostname'leri ayarla
+      hostname:
+        name: "06-ANK-{{ item }}-HOST"
+      loop: "{{ new_hostnames }}"
+
+- name: Firewall & Selinux Configuration
+  hosts: host
+  become: yes
+  tasks:
+    - name: Stop & Disable KSM
+      systemd:
+        name: ksm
+        state: stopped
+        enabled: no
+
+    - name: Stop & Disable ksmtuned
+      systemd:
+        name: ksm
+        state: stopped
+        enabled: no
+
+    - name: Disable SELINUX
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: SELINUX=disabled
+
+    - name: Disable SELINUX
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/sshd
+        regexp: 'session	optional	pam_motd.so'
+        line: '#session	optional	pam_motd.so'
+
+- name: Configuration GRUB Settings
+  become: yes
+  hosts: host
+  tasks:
+    - name: Backup Grub File
+      ansible.builtin.copy:
+        src: /etc/default/grub
+        dest: /root/grub-bckp
+        remote_src: yes
+
+    - name: Configuration Grub File
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="crashkernel=auto resume=/dev/mapper/rhel-swap rd.lvm.lv=rhel/root rd.lvm.lv=rhel/swap rhgb quiet vconsole.keymap=us isolcpus=2-31,34-63 nohz_full=2-31,34-63 rcu_nocbs=2-31,34-63 vconsole.font=latarcyrheb-sun16 intel_iommu=on intel_idle.max_cstate=0 mce=ignore_ce transparent_hugepage=never hugepages=350 default_hugepagesz=1GB hugepagesz=1GB processor.max_cstate=0 elevator=deadline nmi_watchdog=0 loglevel=1"'
+
+    - name: Add Line Grub File
+      lineinfile:
+        path: "/etc/default/grub"
+        line: GRUB_ENABLE_BLSCFG=true
+        insertbefore: BOF
+
+    - name: New Config
+      command: "grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg"
+
+    - name: Reboot Machines
+      ansible.builtin.reboot:
+        msg: "Rebooting machine in 5 seconds"
+        reboot_timeout: 3600
+
+
+- name: Hugepages
+  become: yes
+  hosts: host
+  tasks:
+    - name: Creates directory
+      ansible.builtin.file:
+        path: /dev/hugepages1G
+        state: directory
+
+    - name: Add Line Fstab
+      lineinfile:
+        path: "/etc/fstab"
+        line: nodev /dev/hugepages1G hugetlbfs pagesize=1G 0 0
+        insertbefore: BOF
+
+    - name: Copy Hugetlb Script
+      ansible.builtin.copy:
+        src: ./hugetlb-reserve-pages.sh
+        dest: /usr/lib/systemd/hugetlb-reserve-pages.sh
+        owner: root
+        group: root
+        mode: u=rwx,g=rx,o=rx
+
+    - name: Copy Hugetlb Service File
+      ansible.builtin.copy:
+        src: ./hugetlb-gigantic-pages.service
+        dest: /usr/lib/systemd/system/hugetlb-gigantic-pages.service
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+
+    - name: Disable SELINUX
+      ansible.builtin.lineinfile:
+        path: /etc/libvirt/qemu.conf
+        regexp: 'hugetlbfs_mount= "/dev/hugepages'
+        line: '#hugetlbfs_mount= "/dev/hugepages'
+
+    - name: Disable SELINUX
+      ansible.builtin.lineinfile:
+        path: /etc/libvirt/qemu.conf
+        line: hugetlbfs_mount = ["/dev/hugepages", "/dev/hugepages1G"]
+        insertbefore: BOF
+
+    - name: Disable SELINUX
+      ansible.builtin.lineinfile:
+        path: /etc/libvirt/qemu.conf
+        line: security_driver = "none"
+        insertbefore: BOF
+
+    - name: Stop & Disable ksmtuned
+      systemd:
+        name: libvirtd
+        state: restarted
+        enabled: yes
+
+    - name: Stop & Disable ksmtuned
+      systemd:
+        name: hugetlb-gigantic-pages
+        state: restarted
+        enabled: yes
+
+- name: CPU Configuration
+  become: yes
+  hosts: ids
+  tasks:
+    - name: CPU Configuration
+      ansible.builtin.lineinfile:
+        path: /etc/sysconfig/irqbalance
+        line: FOLLOW_ISOLCPUS=yes
+        insertbefore: BOF
+
+    - name: Disable SELINUX
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/system.conf
+        line: CPUAffinity=0 1 32 33
+        insertbefore: BOF
+
+- name: Copy QCOW Images
+  become: yes
+  hosts: ids
+  tasks:
+    - name: Copy PacketLogic
+      ansible.builtin.copy:
+        src: ./packetlogic2-stats_64-25.20.04.3-disk1.qcow2
+        dest: /usr/local/IDS/packetlogic2-stats_64-25.20.04.3-disk1.qcow2
+        owner: root
+        group: root
+        mode: '0777'
+
+    - name: Copy PacketLogic
+      ansible.builtin.copy:
+        src: ./insights-storage-v25.20.02-psf.tar.gz.gpg
+        dest: /insights-storage-v25.20.02-psf.tar.gz.gpg
+        owner: root
+        group: root
+        mode: '0777'
+
+    - name: Move Repo Files
+      command:  "qemu-img resize /usr/local/IDS/packetlogic2-stats_64-25.20.04.3-disk1.qcow2 890G"
+      args:
+        executable: /bin/bash
+
+    - name: Sanal makine oluştur
+      ansible.builtin.shell: |
+        virt-install --connect qemu:///system --name=06-ANK-IDS{{ '%02d'|format(hostvars[item]['inventory_hostname'][-2:]) }}-HOST \
+        --memory=358400 --vcpus=60,sockets=1,cores=30,threads=2 \
+        --os-type=linux --os-variant=virtio26 \
+        --disk path=/usr/local/IDS/packetlogic2-stats_64-25.20.04.3-disk1.qcow2,bus=virtio,cache=none \
+        --numatune=0,1 --cpu mode=host-passthrough --network bridge=admin,model=virtio \
+        --memorybacking hugepages=on,nosharepages=on,size=1,unit=G \
+        --nographics --noautoconsole --import --autostart
+      with_items: "{{ groups['ids'] }}"
+

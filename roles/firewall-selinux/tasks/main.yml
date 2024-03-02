@@ -1,0 +1,24 @@
+---
+- name: Stop & Disable KSM
+  systemd:
+    name: ksmtuned
+    state: stopped
+    enabled: no
+
+- name: Stop & Disable ksmtuned
+  systemd:
+    name: ksm
+    state: stopped
+    enabled: no
+
+- name: Disable SELINUX
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: SELINUX=disabled
+
+- name: Disable SELINUX
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sshd
+    regexp: 'session        optional        pam_motd.so'
+    line: '#session optional        pam_motd.so'

@@ -1,0 +1,12 @@
+---
+- name: CPU Configuration
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/irqbalance
+    line: FOLLOW_ISOLCPUS=yes
+    insertbefore: BOF
+
+- name: Disable SELINUX
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system.conf
+    line: CPUAffinity=0 1 32 33
+    insertbefore: BOF

@@ -1,0 +1,11 @@
+---
+qemu-img-size: 890G
+memory: 1024
+vcpus: 
+  count: 1
+  sockets: 1
+  cores: 1
+  threads: 1
+network:
+  bridge: ens192
+  model: virtio

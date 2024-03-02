@@ -1,0 +1,21 @@
+---
+- name: "Shutdown the VM with virsh"
+  command: "virsh destroy "{{ inventory_hostname.split('.')[-1] }}""
+
+- name: "Set emulatorpin"
+  command: "virsh emulatorpin "{{ inventory_hostname.split('.')[-1] }}" --cpulist 0,1,32,33 --config"
+
+- name: "Set vcpupin for even CPUs"
+  command: "for i in {0..14}; do virsh vcpupin "{{ inventory_hostname.split('.')[-1] }}" $(($i*2)) $(($i*2+2)) --config; done"
+
+- name: "Set vcpupin for odd CPUs"
+  command: "for i in {0..14}; do virsh vcpupin "{{ inventory_hostname.split('.')[-1] }}" $(($i*2+1)) $(($i*2+1+33)) --config; done"
+
+- name: "Set vcpupin for even CPUs (15-29)"
+  command: "for i in {15..29}; do virsh vcpupin "{{ inventory_hostname.split('.')[-1] }}" $(($i*2)) $((($i-15)*2+3)) --config; done"
+
+- name: "Set vcpupin for odd CPUs (15-29)"
+  command: "for i in {15..29}; do virsh vcpupin "{{ inventory_hostname.split('.')[-1] }}" $(($i*2+1)) $((($i-15)*2+1+34)) --config; done"
+
+- name: "Attach disk with virsh"
+  command: "virsh attach-disk "{{ inventory_hostname.split('.')[-1] }}" /dev/IDSVolume/IDStorage vdb --config"

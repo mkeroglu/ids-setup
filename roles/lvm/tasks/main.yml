@@ -1,0 +1,28 @@
+---
+- name: Create a volume group
+  lvg:
+    vg: "{{ vg_name }}"
+    pvs: "{{ pvs }}"
+    state: present
+
+- name: Create a logical volume
+  lvol:
+    vg: "{{ vg_name }}"
+    lv: "{{ lv_name }}"
+    size: 100%FREE
+    state: present
+
+- name: Display logical volume information
+  command: lvdisplay /dev/"{{ vg_name }}"/"{{ lv_name }}"
+  register: lvdisplay_output
+
+- debug:
+    var: lvdisplay_output.stdout
+
+- name: Display volume group information
+  command: vgdisplay IDSVolume
+  register: vgdisplay_output
+
+- debug:
+    var: vgdisplay_output.stdout
+

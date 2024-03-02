@@ -1,0 +1,105 @@
+- name: Copy ISO File
+  copy:
+    src: ./rhel-8.8-x86_64-dvd.iso
+    dest: /rhel-8.8-x86_64-dvd.iso
+    owner: root
+    group: root
+    mode: '0777'
+
+- name: Dizin Oluştur
+  file:
+    path: /mnt/rhel
+    state: directory
+
+- name: Mount RHEL ISO
+  mount:
+    path: /mnt/rhel
+    src: /rhel-8.8-x86_64-dvd.iso
+    fstype: iso9660
+    opts: loop
+    state: mounted
+
+- name: Create directory
+  file:
+    path: /local-repo
+    state: directory
+    mode: '644'
+
+- name: Dosyaları Sıkıştır
+  archive:
+    path: /mnt/rhel
+    dest: /tmp/mnt.tar.gz
+    format: gz
+
+- name: Hedef Sunucuda Arşivi Çıkart
+  command: "tar -xzvf /tmp/mnt.tar.gz -C /local-repo/"
+
+- name: Copy Yum Repo's File
+  copy:
+    src: ./local-dvdrom.repo
+    dest: /etc/yum.repos.d/local-dvdrom.repo
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install Packages
+  yum:
+    name:
+      - createrepo
+      - yum-utils
+    state: present
+
+- name: Clean All
+  command: "yum clean all"
+  args:
+    executable: /bin/bash
+
+- name: subscription-manager.conf Dosyasını Düzenle
+  lineinfile:
+    path: /etc/yum/pluginconf.d/subscription-manager.conf
+    regexp: 'enabled=1'
+    line: 'enabled=0'
+
+- name: Install Packages
+  yum:
+    name:
+      - "@Development tools"
+      - qemu-kvm
+      - qemu-img
+      - libvirt
+      - virt-install
+      - virt-manager
+      - libvirt-client
+      - virt-viewer
+      - hwloc
+      - xorg-x11-xauth
+      - xorg-x11-fonts-*
+      - xorg-x11-utils
+      - net-tools
+      - network-scripts
+      - "@Virtualization Tools"
+      - libibumad
+      - tcpdump
+      - traceroute
+    state: present
+
+- name: lstopo Command
+  command: "lstopo-no-graphics"
+  args:
+    executable: /bin/bash
+
+- name: Tuned Command-1
+  command: "tuned-adm profile virtual-host"
+  args:
+    executable: /bin/bash
+
+- name: Tuned Command-2
+  command: "tuned-adm profile_info"
+  args:
+    executable: /bin/bash
+
+- name: Copy Default Network-Script
+  command: "cp -r /etc/sysconfig/network-scripts/ /root/network-scripts-backup"
+  args:
+    executable: /bin/bash
+

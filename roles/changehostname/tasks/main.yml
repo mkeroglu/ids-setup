@@ -1,0 +1,4 @@
+---
+- name: Set hostname for IDS servers
+  hostname:
+    name: "IDS-{{ inventory_hostname.split('.')[-1] }}"

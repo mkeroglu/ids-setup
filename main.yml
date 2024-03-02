@@ -1,0 +1,32 @@
+---
+- name: Copy PacketLogic
+  ansible.builtin.copy:
+    src: ./packetlogic2-stats_64-23.20.12.1-lm1.0.9.2-disk1.qcow2
+    dest: /usr/local/IDS/packetlogic2-stats_64-23.20.12.1-lm1.0.9.2-disk1.qcow2
+    owner: root
+    group: root
+    mode: '0777'
+
+- name: Copy PacketLogic
+  ansible.builtin.copy:
+    src: ./insights-storage-v25.20.02-psf.tar.gz.gpg
+    dest: /insights-storage-v25.20.02-psf.tar.gz.gpg
+    owner: root
+    group: root
+    mode: '0777'
+
+- name: Move Repo Files
+  command:  "qemu-img resize /usr/local/IDS/packetlogic2-stats_64-23.20.12.1-lm1.0.9.2-disk1.qcow2 890G"
+  args:
+    executable: /bin/bash
+
+- name: Sanal makine oluştur
+  ansible.builtin.shell: |
+    virt-install --connect qemu:///system --name="{{ inventory_hostname.split('.')[-1] }}" \
+    --memory="{{ memory }}" --vcpus="{{ vcpus.count }}",sockets="{{ vcpus.sockets }}",cores="{{ vcpus.cores }}",threads="{{ vcpus.threads }}" \
+    --os-type=linux --os-variant=virtio26 \
+    --disk path=/usr/local/IDS/packetlogic2-stats_64-23.20.12.1-lm1.0.9.2-disk1.qcow2,bus=virtio,cache=none \
+    --numatune=0,1 --cpu mode=host-passthrough --network bridge="{{ network.bridge }}",model="{{ network.model }}" \
+    --memorybacking hugepages=on,nosharepages=on,size=1,unit=G \
+    --nographics --noautoconsole --import --autostart
+

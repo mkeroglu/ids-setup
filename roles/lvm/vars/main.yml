@@ -1,0 +1,5 @@
+---
+vg_name: IDSVolume
+pvs: /dev/sda
+lv_name: IDStorage
+

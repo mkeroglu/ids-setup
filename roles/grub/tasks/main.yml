@@ -1,0 +1,27 @@
+---
+- name: Backup Grub File
+  ansible.builtin.copy:
+    src: /etc/default/grub
+    dest: /root/grub-bckp
+    remote_src: yes
+
+- name: Configuration Grub File
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX='
+    line: 'GRUB_CMDLINE_LINUX="crashkernel=auto resume=/dev/mapper/rhel-swap rd.lvm.lv=rhel/root rd.lvm.lv=rhel/swap rhgb quiet vconsole.keymap=us isolcpus=2-31,34-63 nohz_full=2-31,34-63 rcu_nocbs=2-31,34-63 vconsole.font=latarcyrheb-sun16 intel_iommu=on intel_idle.max_cstate=0 mce=ignore_ce transparent_hugepage=never hugepages=350 default_hugepagesz=1GB hugepagesz=1GB processor.max_cstate=0 elevator=deadline nmi_watchdog=0 loglevel=1"'
+
+- name: Add Line Grub File
+  lineinfile:
+    path: "/etc/default/grub"
+    line: GRUB_ENABLE_BLSCFG=true
+    insertbefore: BOF
+
+- name: New Config
+  command: "grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg"
+
+- name: Reboot Machines
+  ansible.builtin.reboot:
+    msg: "Rebooting machine in 5 seconds"
+    reboot_timeout: 3600
+

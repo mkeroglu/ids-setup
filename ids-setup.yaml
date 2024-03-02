@@ -1,0 +1,13 @@
+---
+- name: IDS Kurulum
+  hosts: host
+  become: yes
+  roles:
+    - createrepo
+    - changehostname
+    - firewall-selinux
+#    - lvm
+#    - grub
+    - huge #1G olarak güncelle
+    - qcow #Test edilmedi
+#    - setcpu #Test edilmedi, Cpu list değişken olabilir.

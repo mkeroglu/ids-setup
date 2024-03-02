@@ -1,0 +1,16 @@
+[LocalRepo_BaseOS]
+name=LocalRepo_BaseOS
+metadata_expire=-1
+enabled=1
+gpgcheck=1
+baseurl=file:///local-repo/rhel/BaseOS/
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+
+[LocalRepo_AppStream]
+name=LocalRepo_AppStream
+metadata_expire=-1
+enabled=1
+gpgcheck=1
+baseurl=file:///local-repo/rhel/AppStream/
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+
